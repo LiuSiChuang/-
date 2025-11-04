@@ -1,54 +1,85 @@
-# game_objects.py
-# === 游戏对象定义 ===
-# === Определение игровых объектов ===
-
-import pygame
 import random
-from config import *
+import pygame
+from config import WINDOW_WIDTH, WINDOW_HEIGHT, CELL_SIZE, GRID_WIDTH, GRID_HEIGHT, GREEN, RED
 
-class Snake:
-    """蛇类 / Класс змейки"""
+
+class GameObject:
+    """Базовый класс игрового объекта."""
+
+    def __init__(self, position, body_color):
+        """Инициализация объекта с позицией и цветом."""
+        self.position = position
+        self.body_color = body_color
+
+    def draw(self, surface):
+        """Метод отрисовки объекта. Переопределяется в наследниках."""
+        pass
+
+
+class Apple(GameObject):
+    """Класс яблока."""
+
     def __init__(self):
-        self.body = [(100, 100), (80, 100), (60, 100)]
-        self.direction = "RIGHT"
+        super().__init__((0, 0), RED)
+        self.randomize_position()
+
+    def randomize_position(self):
+        """Случайное размещение яблока."""
+        x = random.randint(0, GRID_WIDTH - 1) * CELL_SIZE
+        y = random.randint(0, GRID_HEIGHT - 1) * CELL_SIZE
+        self.position = (x, y)
+
+    def draw(self, surface):
+        rect = pygame.Rect(self.position[0], self.position[1], CELL_SIZE, CELL_SIZE)
+        pygame.draw.rect(surface, self.body_color, rect)
+
+
+class Snake(GameObject):
+    """Класс змейки."""
+
+    def __init__(self):
+        start_x = WINDOW_WIDTH // 2 // CELL_SIZE * CELL_SIZE
+        start_y = WINDOW_HEIGHT // 2 // CELL_SIZE * CELL_SIZE
+        super().__init__((start_x, start_y), GREEN)
+        self.length = 1
+        self.positions = [self.position]
+        self.direction = (CELL_SIZE, 0)
+        self.next_direction = None
+
+    def get_head_position(self):
+        return self.positions[0]
+
+    def update_direction(self):
+        if self.next_direction:
+            dx, dy = self.direction
+            ndx, ndy = self.next_direction
+            if (dx + ndx, dy + ndy) != (0, 0):
+                self.direction = self.next_direction
+            self.next_direction = None
 
     def move(self):
-        """移动蛇 / Движение змейки"""
-        x, y = self.body[0]
-        if self.direction == "UP":
-            y -= CELL_SIZE
-        elif self.direction == "DOWN":
-            y += CELL_SIZE
-        elif self.direction == "LEFT":
-            x -= CELL_SIZE
-        elif self.direction == "RIGHT":
-            x += CELL_SIZE
-        new_head = (x, y)
-        self.body.insert(0, new_head)
-        self.body.pop()
+        cur_x, cur_y = self.get_head_position()
+        dx, dy = self.direction
+        new_head = ((cur_x + dx) % WINDOW_WIDTH, (cur_y + dy) % WINDOW_HEIGHT)
 
-    def grow(self):
-        """蛇增长 / Увеличение длины змейки"""
-        tail = self.body[-1]
-        self.body.append(tail)
+        if new_head in self.positions:
+            self.reset()
+            return
+
+        self.positions.insert(0, new_head)
+        if len(self.positions) > self.length:
+            self.positions.pop()
+        self.position = new_head
 
     def draw(self, surface):
-        """绘制蛇 / Отрисовка змейки"""
-        for segment in self.body:
-            pygame.draw.rect(surface, GREEN, (segment[0], segment[1], CELL_SIZE, CELL_SIZE))
+        for pos in self.positions:
+            rect = pygame.Rect(pos[0], pos[1], CELL_SIZE, CELL_SIZE)
+            pygame.draw.rect(surface, self.body_color, rect)
 
-
-class Apple:
-    """苹果类 / Класс яблока"""
-    def __init__(self):
-        self.position = self.random_position()
-
-    def random_position(self):
-        """随机生成新位置 / Генерация случайной позиции"""
-        x = random.randint(0, (WINDOW_WIDTH - CELL_SIZE) // CELL_SIZE) * CELL_SIZE
-        y = random.randint(0, (WINDOW_HEIGHT - CELL_SIZE) // CELL_SIZE) * CELL_SIZE
-        return (x, y)
-
-    def draw(self, surface):
-        """绘制苹果 / Отрисовка яблока"""
-        pygame.draw.rect(surface, RED, (self.position[0], self.position[1], CELL_SIZE, CELL_SIZE))
+    def reset(self):
+        start_x = WINDOW_WIDTH // 2 // CELL_SIZE * CELL_SIZE
+        start_y = WINDOW_HEIGHT // 2 // CELL_SIZE * CELL_SIZE
+        self.length = 1
+        self.positions = [(start_x, start_y)]
+        self.direction = (CELL_SIZE, 0)
+        self.next_direction = None
